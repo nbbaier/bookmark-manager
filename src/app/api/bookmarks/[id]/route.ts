@@ -129,3 +129,71 @@ export async function DELETE(
 		);
 	}
 }
+
+export async function PATCH(
+	request: NextRequest,
+	{ params }: { params: Promise<{ id: string }> },
+) {
+	try {
+		const { id } = await params;
+		const { searchParams } = new URL(request.url);
+		const action = searchParams.get("action");
+
+		const validationResult = bookmarkIdSchema.safeParse({ id });
+		if (!validationResult.success) {
+			return NextResponse.json(
+				{
+					error: "Invalid bookmark ID",
+					details: validationResult.error.issues,
+				},
+				{ status: 400 },
+			);
+		}
+
+		const bookmarkService = new BookmarkService();
+
+		// Handle re-categorization action
+		if (action === "recategorize") {
+			try {
+				const bookmark = await bookmarkService.recategorizeBookmark(
+					validationResult.data.id,
+				);
+				return NextResponse.json({
+					...bookmark,
+					message: "Bookmark re-categorized successfully",
+				});
+			} catch (error) {
+				if (error instanceof Error && error.message === "Bookmark not found") {
+					return NextResponse.json(
+						{ error: "Bookmark not found" },
+						{ status: 404 },
+					);
+				}
+				if (
+					error instanceof Error &&
+					error.message === "AI service not configured"
+				) {
+					return NextResponse.json(
+						{ error: "AI service not configured" },
+						{ status: 503 },
+					);
+				}
+				throw error;
+			}
+		}
+
+		return NextResponse.json(
+			{
+				error:
+					"Invalid or missing action parameter. Supported actions: recategorize",
+			},
+			{ status: 400 },
+		);
+	} catch (error) {
+		console.error("PATCH bookmark error:", error);
+		return NextResponse.json(
+			{ error: "Failed to process request" },
+			{ status: 500 },
+		);
+	}
+}

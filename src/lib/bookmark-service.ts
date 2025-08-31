@@ -5,6 +5,8 @@ import type {
 	CreateBookmarkRequest,
 	UpdateBookmarkRequest,
 } from "@/types/bookmark";
+import { FALLBACK_CATEGORY } from "./ai-prompts";
+import { categorizeBookmark, isAIServiceConfigured } from "./ai-service";
 import { db } from "./db";
 import { bookmarks, bookmarkTags, tags } from "./schema";
 
@@ -15,6 +17,37 @@ export class BookmarkService {
 			throw new Error("Bookmark with this URL already exists");
 		}
 
+		// Determine AI category - either use provided one or categorize automatically
+		let aiCategory = data.aiCategory;
+		let aiConfidence: number | null = null;
+
+		if (!aiCategory && isAIServiceConfigured()) {
+			try {
+				console.log(`Attempting AI categorization for: ${data.url}`);
+				const categorization = await categorizeBookmark({
+					url: data.url,
+					title: data.title,
+					description: data.description,
+				});
+
+				aiCategory = categorization.category;
+				// Convert confidence from float (0.0-1.0) to integer (0-100) for SQLite
+				aiConfidence = Math.round(categorization.confidence * 100);
+
+				console.log(
+					`AI categorization result: ${aiCategory} (confidence: ${aiConfidence}%)`,
+				);
+			} catch (error) {
+				console.warn("AI categorization failed, using fallback:", error);
+				aiCategory = FALLBACK_CATEGORY;
+				aiConfidence = 0;
+			}
+		} else if (!aiCategory) {
+			// No AI service configured and no category provided
+			aiCategory = FALLBACK_CATEGORY;
+			aiConfidence = 0;
+		}
+
 		const [bookmark] = await db
 			.insert(bookmarks)
 			.values({
@@ -23,6 +56,8 @@ export class BookmarkService {
 				description: data.description,
 				faviconUrl: data.faviconUrl,
 				notes: data.notes,
+				aiCategory,
+				aiConfidence,
 			})
 			.returning();
 
@@ -73,6 +108,79 @@ export class BookmarkService {
 		if (result.rowsAffected === 0) {
 			throw new Error("Bookmark not found");
 		}
+	}
+
+	/**
+	 * Re-categorize an existing bookmark using AI
+	 */
+	async recategorizeBookmark(id: number): Promise<BookmarkResponse> {
+		const bookmark = await this.getBookmark(id);
+		if (!bookmark) {
+			throw new Error("Bookmark not found");
+		}
+
+		if (!isAIServiceConfigured()) {
+			throw new Error("AI service not configured");
+		}
+
+		try {
+			console.log(`Re-categorizing bookmark: ${bookmark.url}`);
+			const categorization = await categorizeBookmark({
+				url: bookmark.url,
+				title: bookmark.title ?? undefined,
+				description: bookmark.description ?? undefined,
+			});
+
+			// Convert confidence from float (0.0-1.0) to integer (0-100) for SQLite
+			const confidenceInt = Math.round(categorization.confidence * 100);
+
+			await db
+				.update(bookmarks)
+				.set({
+					aiCategory: categorization.category,
+					aiConfidence: categorization.confidence,
+					updatedAt: new Date().toISOString(),
+				})
+				.where(eq(bookmarks.id, id));
+
+			console.log(
+				`Re-categorization complete: ${categorization.category} (confidence: ${confidenceInt}%)`,
+			);
+
+			return this.getBookmarkWithTags(id);
+		} catch (error) {
+			console.error("Failed to re-categorize bookmark:", error);
+			throw new Error(
+				`Re-categorization failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		}
+	}
+
+	/**
+	 * Batch re-categorize multiple bookmarks
+	 */
+	async recategorizeBookmarksBatch(ids: number[]): Promise<BookmarkResponse[]> {
+		if (!isAIServiceConfigured()) {
+			throw new Error("AI service not configured");
+		}
+
+		const results: BookmarkResponse[] = [];
+
+		for (const id of ids) {
+			try {
+				const result = await this.recategorizeBookmark(id);
+				results.push(result);
+			} catch (error) {
+				console.error(`Failed to re-categorize bookmark ${id}:`, error);
+				// Continue with other bookmarks even if one fails
+				const bookmark = await this.getBookmark(id);
+				if (bookmark) {
+					results.push(bookmark);
+				}
+			}
+		}
+
+		return results;
 	}
 
 	async listBookmarks(filters: BookmarkFilters): Promise<{
