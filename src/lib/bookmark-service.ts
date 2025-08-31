@@ -216,11 +216,43 @@ export class BookmarkService {
 			});
 			await Promise.all(updatePromises);
 
-			// Return all updated bookmarks with tags
-			const results = await Promise.all(
-				bookmarksData.map((bookmark) => this.getBookmarkWithTags(bookmark.id)),
-			);
+			// Return all updated bookmarks with tags in a single query to avoid N+1 problem
+			const joinedRows = await db
+				.select({
+					bookmark: bookmarks,
+					tag: tags,
+				})
+				.from(bookmarks)
+				.leftJoin(bookmarkTags, eq(bookmarks.id, bookmarkTags.bookmarkId))
+				.leftJoin(tags, eq(bookmarkTags.tagId, tags.id))
+				.where(inArray(bookmarks.id, ids));
 
+			// Group tags by bookmark id
+			const bookmarkMap: Record<number, BookmarkResponse> = {};
+			for (const row of joinedRows) {
+				const b = row.bookmark;
+				if (!bookmarkMap[b.id]) {
+					bookmarkMap[b.id] = {
+						id: b.id,
+						url: b.url,
+						title: b.title ?? undefined,
+						description: b.description ?? undefined,
+						category: b.category ?? undefined,
+						aiCategory: b.aiCategory ?? undefined,
+						aiConfidence: b.aiConfidence ?? undefined,
+						createdAt: b.createdAt,
+						updatedAt: b.updatedAt,
+						tags: [],
+					};
+				}
+				if (row.tag && row.tag.id) {
+					bookmarkMap[b.id].tags.push({
+						id: row.tag.id,
+						name: row.tag.name,
+					});
+				}
+			}
+			const results = Object.values(bookmarkMap);
 			console.log(`Batch re-categorization complete for ${results.length} bookmarks`);
 			return results;
 		} catch (error) {
