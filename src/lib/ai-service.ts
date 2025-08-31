@@ -40,10 +40,7 @@ const RATE_LIMIT = {
 	requestTimestamps: [] as number[],
 };
 
-/**
- * Batch processing configuration
- */
-const MAX_CONCURRENT_CATEGORIZATIONS = 3;
+
 
 /**
  * Simple in-memory cache for AI responses
