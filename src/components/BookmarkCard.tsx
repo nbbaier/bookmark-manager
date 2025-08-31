@@ -1,6 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { BookmarkResponse } from "@/types/bookmark";
 
 interface BookmarkCardProps {
@@ -14,6 +18,8 @@ export default function BookmarkCard({
 	isSelected = false,
 	onSelect,
 }: BookmarkCardProps) {
+	const [faviconError, setFaviconError] = useState(false);
+
 	const handleSelect = () => {
 		if (onSelect) {
 			onSelect(bookmark.id);
@@ -39,33 +45,38 @@ export default function BookmarkCard({
 	};
 
 	return (
-		<div
-			className={`bg-white rounded-lg border transition-all duration-200 ${
-				isSelected
-					? "border-blue-500 ring-2 ring-blue-200"
-					: "border-gray-200 hover:border-gray-300 hover:shadow-md"
+		<Card
+			className={`transition-all duration-200 ${
+				isSelected ? "border-blue-500 ring-2 ring-blue-200" : "hover:shadow-md"
 			}`}
 		>
-			<div className="p-4">
+			<CardContent className="p-4">
 				{onSelect && (
 					<div className="flex items-center justify-end mb-2">
-						<input
-							type="checkbox"
-							checked={isSelected}
-							onChange={handleSelect}
-							className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-						/>
+						<Checkbox checked={isSelected} onCheckedChange={handleSelect} />
 					</div>
 				)}
 
 				<div className="flex items-start space-x-3">
-					<Image
-						src={getFaviconUrl(bookmark.url)}
-						alt="Favicon"
-						width={20}
-						height={20}
-						className="w-5 h-5 rounded flex-shrink-0 mt-1"
-					/>
+					{!faviconError ? (
+						<Image
+							src={getFaviconUrl(bookmark.url)}
+							alt="Favicon"
+							width={20}
+							height={20}
+							className="w-5 h-5 rounded flex-shrink-0 mt-1"
+							onError={() => setFaviconError(true)}
+							unoptimized
+						/>
+					) : (
+						<Image
+							src="/globe.svg"
+							alt="Default favicon"
+							width={20}
+							height={20}
+							className="w-5 h-5 rounded flex-shrink-0 mt-1"
+						/>
+					)}
 
 					<div className="flex-1 min-w-0">
 						<h3 className="text-sm font-medium text-gray-900 truncate">
@@ -84,19 +95,16 @@ export default function BookmarkCard({
 						<div className="flex items-center justify-between mt-3">
 							<div className="flex flex-wrap gap-1">
 								{bookmark.tags?.map((tag) => (
-									<span
-										key={tag.id}
-										className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-									>
+									<Badge key={tag.id} variant="secondary" className="text-xs">
 										{tag.name}
-									</span>
+									</Badge>
 								))}
 							</div>
 
 							{bookmark.aiCategory && (
-								<span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+								<Badge variant="outline" className="text-xs">
 									{bookmark.aiCategory}
-								</span>
+								</Badge>
 							)}
 						</div>
 
@@ -114,7 +122,7 @@ export default function BookmarkCard({
 						</div>
 					</div>
 				</div>
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 }

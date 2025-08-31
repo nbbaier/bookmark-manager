@@ -4,12 +4,14 @@ import { useState } from "react";
 import BookmarkGrid from "@/components/BookmarkGrid";
 import FilterSidebar from "@/components/FilterSidebar";
 import SearchBar from "@/components/SearchBar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useBookmarks } from "@/hooks/useBookmarks";
 
 export default function DashboardPage() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedTags, setSelectedTags] = useState<string[]>([]);
-	const [selectedCategory, setSelectedCategory] = useState<string>("");
+	const [selectedCategory, setSelectedCategory] = useState<string>("all");
 	const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
 		start: "",
 		end: "",
@@ -19,7 +21,7 @@ export default function DashboardPage() {
 	const { bookmarks, loading, error, hasMore, loadMore } = useBookmarks({
 		search: searchQuery,
 		tags: selectedTags,
-		category: selectedCategory,
+		category: selectedCategory === "all" ? "" : selectedCategory,
 		dateRange,
 	});
 
@@ -47,12 +49,14 @@ export default function DashboardPage() {
 		return (
 			<div className="min-h-screen bg-gray-50 p-6">
 				<div className="max-w-7xl mx-auto">
-					<div className="bg-red-50 border border-red-200 rounded-lg p-4">
-						<h2 className="text-red-800 font-medium">
-							Error loading bookmarks
-						</h2>
-						<p className="text-red-600 mt-1">{error}</p>
-					</div>
+					<Card className="border-red-200 bg-red-50">
+						<CardContent className="p-4">
+							<h2 className="text-red-800 font-medium">
+								Error loading bookmarks
+							</h2>
+							<p className="text-red-600 mt-1">{error}</p>
+						</CardContent>
+					</Card>
 				</div>
 			</div>
 		);
@@ -83,13 +87,9 @@ export default function DashboardPage() {
 					<div className="flex-1">
 						<div className="flex items-center justify-between mb-6">
 							<SearchBar onSearch={handleSearch} />
-							<button
-								type="button"
-								onClick={handleViewToggle}
-								className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-							>
+							<Button variant="outline" onClick={handleViewToggle}>
 								{viewMode === "grid" ? "List View" : "Grid View"}
-							</button>
+							</Button>
 						</div>
 
 						<BookmarkGrid

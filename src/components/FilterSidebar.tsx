@@ -1,6 +1,18 @@
 "use client";
 
 import { useId } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 interface FilterSidebarProps {
 	selectedTags: string[];
@@ -43,24 +55,21 @@ export default function FilterSidebar({
 
 	const clearFilters = () => {
 		onTagFilter([]);
-		onCategoryFilter("");
+		onCategoryFilter("all");
 		onDateRangeFilter({ start: "", end: "" });
 	};
 
 	return (
-		<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-			<div className="flex items-center justify-between mb-6">
-				<h3 className="text-lg font-medium text-gray-900">Filters</h3>
-				<button
-					type="button"
-					onClick={clearFilters}
-					className="text-sm text-blue-600 hover:text-blue-800"
-				>
-					Clear all
-				</button>
-			</div>
-
-			<div className="space-y-6">
+		<Card>
+			<CardHeader>
+				<div className="flex items-center justify-between">
+					<CardTitle>Filters</CardTitle>
+					<Button variant="ghost" size="sm" onClick={clearFilters}>
+						Clear all
+					</Button>
+				</div>
+			</CardHeader>
+			<CardContent className="space-y-6">
 				<div>
 					<h4 className="text-sm font-medium text-gray-700 mb-3">Tags</h4>
 					<div className="space-y-2">
@@ -72,36 +81,46 @@ export default function FilterSidebar({
 							"design",
 							"productivity",
 						].map((tag) => (
-							<label key={tag} className="flex items-center">
-								<input
-									type="checkbox"
+							<div key={tag} className="flex items-center space-x-2">
+								<Checkbox
+									id={`tag-${tag}`}
 									checked={selectedTags.includes(tag)}
-									onChange={() => handleTagToggle(tag)}
-									className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+									onCheckedChange={() => handleTagToggle(tag)}
 								/>
-								<span className="ml-2 text-sm text-gray-700 capitalize">
+								<label
+									htmlFor={`tag-${tag}`}
+									className="text-sm text-gray-700 capitalize cursor-pointer"
+								>
 									{tag}
-								</span>
-							</label>
+								</label>
+							</div>
 						))}
 					</div>
 				</div>
 
+				<Separator />
+
 				<div>
 					<h4 className="text-sm font-medium text-gray-700 mb-3">Category</h4>
-					<select
-						value={selectedCategory}
-						onChange={(e) => handleCategoryChange(e.target.value)}
-						className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+					<Select
+						value={selectedCategory || "all"}
+						onValueChange={handleCategoryChange}
 					>
-						<option value="">All categories</option>
-						<option value="development">Development</option>
-						<option value="design">Design</option>
-						<option value="productivity">Productivity</option>
-						<option value="learning">Learning</option>
-						<option value="entertainment">Entertainment</option>
-					</select>
+						<SelectTrigger>
+							<SelectValue placeholder="All categories" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All categories</SelectItem>
+							<SelectItem value="development">Development</SelectItem>
+							<SelectItem value="design">Design</SelectItem>
+							<SelectItem value="productivity">Productivity</SelectItem>
+							<SelectItem value="learning">Learning</SelectItem>
+							<SelectItem value="entertainment">Entertainment</SelectItem>
+						</SelectContent>
+					</Select>
 				</div>
+
+				<Separator />
 
 				<div>
 					<h4 className="text-sm font-medium text-gray-700 mb-3">Date Range</h4>
@@ -113,13 +132,12 @@ export default function FilterSidebar({
 							>
 								From
 							</label>
-							<input
+							<Input
 								type="date"
 								aria-label="From"
 								id={dateStartId}
 								value={dateRange.start}
 								onChange={(e) => handleDateChange("start", e.target.value)}
-								className="block w-full px-3  py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
 							/>
 						</div>
 						<div>
@@ -129,18 +147,17 @@ export default function FilterSidebar({
 							>
 								To
 							</label>
-							<input
+							<Input
 								type="date"
 								id={dateEndId}
 								aria-label="To"
 								value={dateRange.end}
 								onChange={(e) => handleDateChange("end", e.target.value)}
-								className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
 							/>
 						</div>
 					</div>
 				</div>
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 }

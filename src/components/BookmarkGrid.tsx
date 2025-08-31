@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Spinner } from "@/components/ui/spinner";
 import type { BookmarkResponse } from "@/types/bookmark";
 import BookmarkCard from "./BookmarkCard";
 
@@ -22,6 +25,7 @@ export default function BookmarkGrid({
 	const [selectedBookmarks, setSelectedBookmarks] = useState<Set<number>>(
 		new Set(),
 	);
+	const selectAllId = useId();
 
 	const handleBookmarkSelect = (id: number) => {
 		const newSelected = new Set(selectedBookmarks);
@@ -76,20 +80,22 @@ export default function BookmarkGrid({
 			{bookmarks.length > 0 && (
 				<div className="flex items-center justify-between">
 					<div className="flex items-center space-x-4">
-						<label className="flex items-center">
-							<input
-								type="checkbox"
+						<div className="flex items-center space-x-2">
+							<Checkbox
+								id={selectAllId}
 								checked={
 									selectedBookmarks.size === bookmarks.length &&
 									bookmarks.length > 0
 								}
-								onChange={handleSelectAll}
-								className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+								onCheckedChange={handleSelectAll}
 							/>
-							<span className="ml-2 text-sm text-gray-700">
+							<label
+								htmlFor={selectAllId}
+								className="text-sm text-gray-700 cursor-pointer"
+							>
 								Select all ({selectedBookmarks.size}/{bookmarks.length})
-							</span>
-						</label>
+							</label>
+						</div>
 					</div>
 				</div>
 			)}
@@ -113,19 +119,13 @@ export default function BookmarkGrid({
 
 			{loading && (
 				<div className="flex justify-center py-8">
-					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+					<Spinner size="md" />
 				</div>
 			)}
 
 			{hasMore && !loading && (
 				<div className="flex justify-center py-6">
-					<button
-						type="button"
-						onClick={onLoadMore}
-						className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-					>
-						Load More
-					</button>
+					<Button onClick={onLoadMore}>Load More</Button>
 				</div>
 			)}
 		</div>
