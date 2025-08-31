@@ -10,6 +10,7 @@ export const bookmarks = sqliteTable(
 		description: text("description"),
 		faviconUrl: text("favicon_url"),
 		aiCategory: text("ai_category").default("Uncategorized"),
+		aiConfidence: integer("ai_confidence"), // Store as integer (0-100) for SQLite compatibility
 		notes: text("notes"),
 		createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 		updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),

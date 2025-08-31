@@ -5,6 +5,7 @@ export const createBookmarkSchema = z.object({
 	title: z.string().optional(),
 	description: z.string().optional(),
 	faviconUrl: z.string().url("Invalid favicon URL").optional(),
+	aiCategory: z.string().optional(),
 	notes: z.string().optional(),
 	tags: z.array(z.string().min(1, "Tag cannot be empty")).optional(),
 });

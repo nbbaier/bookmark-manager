@@ -1,10 +1,12 @@
-import { and, between, count, desc, eq, sql } from "drizzle-orm";
+import { and, between, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type {
 	BookmarkFilters,
 	BookmarkResponse,
 	CreateBookmarkRequest,
 	UpdateBookmarkRequest,
 } from "@/types/bookmark";
+import { FALLBACK_CATEGORY } from "./ai-prompts";
+import { categorizeBookmark, categorizeBookmarksBatch, isAIServiceConfigured } from "./ai-service";
 import { db } from "./db";
 import { bookmarks, bookmarkTags, tags } from "./schema";
 
@@ -15,6 +17,37 @@ export class BookmarkService {
 			throw new Error("Bookmark with this URL already exists");
 		}
 
+		// Determine AI category - either use provided one or categorize automatically
+		let aiCategory = data.aiCategory;
+		let aiConfidence: number | null = null;
+
+		if (!aiCategory && isAIServiceConfigured()) {
+			try {
+				console.log(`Attempting AI categorization for: ${data.url}`);
+				const categorization = await categorizeBookmark({
+					url: data.url,
+					title: data.title,
+					description: data.description,
+				});
+
+				aiCategory = categorization.category;
+				// Convert confidence from float (0.0-1.0) to integer (0-100) for SQLite
+				aiConfidence = Math.round(categorization.confidence * 100);
+
+				console.log(
+					`AI categorization result: ${aiCategory} (confidence: ${aiConfidence}%)`,
+				);
+			} catch (error) {
+				console.warn("AI categorization failed, using fallback:", error);
+				aiCategory = FALLBACK_CATEGORY;
+				aiConfidence = 0;
+			}
+		} else if (!aiCategory) {
+			// No AI service configured and no category provided
+			aiCategory = FALLBACK_CATEGORY;
+			aiConfidence = 0;
+		}
+
 		const [bookmark] = await db
 			.insert(bookmarks)
 			.values({
@@ -23,6 +56,8 @@ export class BookmarkService {
 				description: data.description,
 				faviconUrl: data.faviconUrl,
 				notes: data.notes,
+				aiCategory,
+				aiConfidence,
 			})
 			.returning();
 
@@ -72,6 +107,159 @@ export class BookmarkService {
 		const result = await db.delete(bookmarks).where(eq(bookmarks.id, id));
 		if (result.rowsAffected === 0) {
 			throw new Error("Bookmark not found");
+		}
+	}
+
+	/**
+	 * Re-categorize an existing bookmark using AI
+	 */
+	async recategorizeBookmark(id: number): Promise<BookmarkResponse> {
+		const bookmark = await this.getBookmark(id);
+		if (!bookmark) {
+			throw new Error("Bookmark not found");
+		}
+
+		if (!isAIServiceConfigured()) {
+			throw new Error("AI service not configured");
+		}
+
+		try {
+			console.log(`Re-categorizing bookmark: ${bookmark.url}`);
+			const categorization = await categorizeBookmark({
+				url: bookmark.url,
+				title: bookmark.title ?? undefined,
+				description: bookmark.description ?? undefined,
+			});
+
+			// Convert confidence from float (0.0-1.0) to integer (0-100) for SQLite
+			const confidenceInt = Math.round(categorization.confidence * 100);
+
+			await db
+				.update(bookmarks)
+				.set({
+					aiCategory: categorization.category,
+					aiConfidence: confidenceInt,
+					updatedAt: new Date().toISOString(),
+				})
+				.where(eq(bookmarks.id, id));
+
+			console.log(
+				`Re-categorization complete: ${categorization.category} (confidence: ${confidenceInt}%)`,
+			);
+
+			return this.getBookmarkWithTags(id);
+		} catch (error) {
+			console.error("Failed to re-categorize bookmark:", error);
+			throw new Error(
+				`Re-categorization failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		}
+	}
+
+	/**
+	 * Batch re-categorize multiple bookmarks
+	 */
+	async recategorizeBookmarksBatch(ids: number[]): Promise<BookmarkResponse[]> {
+		if (!isAIServiceConfigured()) {
+			throw new Error("AI service not configured");
+		}
+
+		if (ids.length === 0) {
+			return [];
+		}
+
+		try {
+			// Fetch all bookmarks in a single query
+			const bookmarksData = await db
+				.select()
+				.from(bookmarks)
+				.where(inArray(bookmarks.id, ids));
+
+			if (bookmarksData.length === 0) {
+				throw new Error("No bookmarks found for the provided IDs");
+			}
+
+			console.log(`Re-categorizing ${bookmarksData.length} bookmarks in batch`);
+
+			// Transform to BookmarkData format for AI service
+			const bookmarkDataForAI = bookmarksData.map((bookmark) => ({
+				url: bookmark.url,
+				title: bookmark.title ?? undefined,
+				description: bookmark.description ?? undefined,
+			}));
+
+			// Use the batch categorization function from ai-service
+			const categorizations = await categorizeBookmarksBatch(bookmarkDataForAI);
+
+			// Update all bookmarks with new categorizations
+			const updatePromises = bookmarksData.map((bookmark, i) => {
+				const categorization = categorizations[i];
+				if (categorization) {
+					// Convert confidence from float (0.0-1.0) to integer (0-100) for SQLite
+					const confidenceInt = Math.round(categorization.confidence * 100);
+					return db
+						.update(bookmarks)
+						.set({
+							aiCategory: categorization.category,
+							aiConfidence: confidenceInt,
+							updatedAt: new Date().toISOString(),
+						})
+						.where(eq(bookmarks.id, bookmark.id))
+						.then(() => {
+							console.log(
+								`Updated bookmark ${bookmark.id}: ${categorization.category} (confidence: ${confidenceInt}%)`,
+							);
+						});
+				} else {
+					return Promise.resolve();
+				}
+			});
+			await Promise.all(updatePromises);
+
+			// Return all updated bookmarks with tags in a single query to avoid N+1 problem
+			const joinedRows = await db
+				.select({
+					bookmark: bookmarks,
+					tag: tags,
+				})
+				.from(bookmarks)
+				.leftJoin(bookmarkTags, eq(bookmarks.id, bookmarkTags.bookmarkId))
+				.leftJoin(tags, eq(bookmarkTags.tagId, tags.id))
+				.where(inArray(bookmarks.id, ids));
+
+			// Group tags by bookmark id
+			const bookmarkMap: Record<number, BookmarkResponse> = {};
+			for (const row of joinedRows) {
+				const b = row.bookmark;
+				if (!bookmarkMap[b.id]) {
+					bookmarkMap[b.id] = {
+						id: b.id,
+						url: b.url,
+						title: b.title ?? undefined,
+						description: b.description ?? undefined,
+						category: b.category ?? undefined,
+						aiCategory: b.aiCategory ?? undefined,
+						aiConfidence: b.aiConfidence ?? undefined,
+						createdAt: b.createdAt,
+						updatedAt: b.updatedAt,
+						tags: [],
+					};
+				}
+				if (row.tag && row.tag.id) {
+					bookmarkMap[b.id].tags.push({
+						id: row.tag.id,
+						name: row.tag.name,
+					});
+				}
+			}
+			const results = Object.values(bookmarkMap);
+			console.log(`Batch re-categorization complete for ${results.length} bookmarks`);
+			return results;
+		} catch (error) {
+			console.error("Failed to batch re-categorize bookmarks:", error);
+			throw new Error(
+				`Batch re-categorization failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
 		}
 	}
 

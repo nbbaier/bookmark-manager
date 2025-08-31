@@ -5,6 +5,7 @@ export interface CreateBookmarkRequest {
 	title?: string;
 	description?: string;
 	faviconUrl?: string;
+	aiCategory?: string;
 	notes?: string;
 	tags?: string[];
 }
