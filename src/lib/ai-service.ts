@@ -23,6 +23,16 @@ const categorizationSchema = z.object({
 });
 
 /**
+ * Maximum number of concurrent categorizations to process at once.
+ * 
+ * This constant replaces the previous magic number "3" to make the batch size
+ * configurable and more maintainable. The value controls how many bookmarks
+ * are processed in parallel during batch operations to prevent overwhelming
+ * the AI service and respect rate limits.
+ */
+export const MAX_CONCURRENT_CATEGORIZATIONS = 3;
+
+/**
  * Rate limiting configuration
  */
 const RATE_LIMIT = {
@@ -210,7 +220,7 @@ export async function categorizeBookmarksBatch(
 	const results: CategorizationResult[] = [];
 
 	// Process in small batches to avoid overwhelming the API
-	const batchSize = 3;
+	const batchSize = MAX_CONCURRENT_CATEGORIZATIONS;
 
 	for (let i = 0; i < bookmarks.length; i += batchSize) {
 		const batch = bookmarks.slice(i, i + batchSize);
@@ -243,6 +253,7 @@ export function getCategorizationStats() {
 		availableCategories: BOOKMARK_CATEGORIES.length,
 		fallbackCategory: FALLBACK_CATEGORY,
 		minConfidenceThreshold: MIN_CONFIDENCE_THRESHOLD,
+		maxConcurrentCategorizations: MAX_CONCURRENT_CATEGORIZATIONS,
 	};
 }
 
