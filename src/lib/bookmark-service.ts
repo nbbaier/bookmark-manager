@@ -192,28 +192,29 @@ export class BookmarkService {
 			const categorizations = await categorizeBookmarksBatch(bookmarkDataForAI);
 
 			// Update all bookmarks with new categorizations
-			for (let i = 0; i < bookmarksData.length; i++) {
-				const bookmark = bookmarksData[i];
+			const updatePromises = bookmarksData.map((bookmark, i) => {
 				const categorization = categorizations[i];
-
 				if (categorization) {
 					// Convert confidence from float (0.0-1.0) to integer (0-100) for SQLite
 					const confidenceInt = Math.round(categorization.confidence * 100);
-
-					await db
+					return db
 						.update(bookmarks)
 						.set({
 							aiCategory: categorization.category,
 							aiConfidence: confidenceInt,
 							updatedAt: new Date().toISOString(),
 						})
-						.where(eq(bookmarks.id, bookmark.id));
-
-					console.log(
-						`Updated bookmark ${bookmark.id}: ${categorization.category} (confidence: ${confidenceInt}%)`,
-					);
+						.where(eq(bookmarks.id, bookmark.id))
+						.then(() => {
+							console.log(
+								`Updated bookmark ${bookmark.id}: ${categorization.category} (confidence: ${confidenceInt}%)`,
+							);
+						});
+				} else {
+					return Promise.resolve();
 				}
-			}
+			});
+			await Promise.all(updatePromises);
 
 			// Return all updated bookmarks with tags
 			const results = await Promise.all(
