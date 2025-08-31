@@ -138,7 +138,7 @@ export class BookmarkService {
 				.update(bookmarks)
 				.set({
 					aiCategory: categorization.category,
-					aiConfidence: categorization.confidence,
+					aiConfidence: confidenceInt,
 					updatedAt: new Date().toISOString(),
 				})
 				.where(eq(bookmarks.id, id));
