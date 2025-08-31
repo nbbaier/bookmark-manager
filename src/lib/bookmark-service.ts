@@ -7,8 +7,15 @@ import type {
 } from "@/types/bookmark";
 import { db } from "./db";
 import { bookmarks, bookmarkTags, tags } from "./schema";
+import { MockAICategorizationService, type AICategorizationService } from "./ai-categorization-service";
+import { MAX_CONCURRENT_CATEGORIZATIONS } from "./constants";
 
 export class BookmarkService {
+	private aiCategorizationService: AICategorizationService;
+
+	constructor(aiService?: AICategorizationService) {
+		this.aiCategorizationService = aiService || new MockAICategorizationService();
+	}
 	async createBookmark(data: CreateBookmarkRequest): Promise<BookmarkResponse> {
 		const existingBookmark = await this.findByUrl(data.url);
 		if (existingBookmark) {
@@ -148,6 +155,85 @@ export class BookmarkService {
 			.limit(1);
 		if (!bookmark) return null;
 		return this.getBookmarkWithTags(bookmark.id);
+	}
+
+	/**
+	 * Categorizes uncategorized bookmarks using AI in batches
+	 * Uses MAX_CONCURRENT_CATEGORIZATIONS to limit concurrent processing
+	 */
+	async categorizeUncategorizedBookmarks(): Promise<void> {
+		// Find bookmarks that need categorization
+		const uncategorizedBookmarks = await db
+			.select()
+			.from(bookmarks)
+			.where(eq(bookmarks.aiCategory, "Uncategorized"))
+			.limit(50); // Process up to 50 at a time
+
+		if (uncategorizedBookmarks.length === 0) {
+			return;
+		}
+
+		console.log(`Processing ${uncategorizedBookmarks.length} uncategorized bookmarks in batches of ${MAX_CONCURRENT_CATEGORIZATIONS}`);
+
+		// Use the AI service to categorize bookmarks (it handles batching internally)
+		const categorizations = await this.aiCategorizationService.categorizeBookmarks(
+			uncategorizedBookmarks.map(bookmark => ({
+				id: bookmark.id,
+				url: bookmark.url,
+				title: bookmark.title || undefined,
+				description: bookmark.description || undefined,
+			}))
+		);
+
+		// Update bookmarks with AI categories
+		for (const categorization of categorizations) {
+			await db
+				.update(bookmarks)
+				.set({ 
+					aiCategory: categorization.suggestedCategory,
+					updatedAt: new Date().toISOString()
+				})
+				.where(eq(bookmarks.id, categorization.id));
+		}
+
+		console.log(`Successfully categorized ${categorizations.length} bookmarks`);
+	}
+
+	/**
+	 * Re-categorizes all bookmarks using AI (useful for improving categorization)
+	 */
+	async recategorizeAllBookmarks(): Promise<void> {
+		const allBookmarks = await db
+			.select()
+			.from(bookmarks);
+
+		if (allBookmarks.length === 0) {
+			return;
+		}
+
+		console.log(`Re-categorizing all ${allBookmarks.length} bookmarks in batches of ${MAX_CONCURRENT_CATEGORIZATIONS}`);
+
+		const categorizations = await this.aiCategorizationService.categorizeBookmarks(
+			allBookmarks.map(bookmark => ({
+				id: bookmark.id,
+				url: bookmark.url,
+				title: bookmark.title || undefined,
+				description: bookmark.description || undefined,
+			}))
+		);
+
+		// Update bookmarks with new AI categories
+		for (const categorization of categorizations) {
+			await db
+				.update(bookmarks)
+				.set({ 
+					aiCategory: categorization.suggestedCategory,
+					updatedAt: new Date().toISOString()
+				})
+				.where(eq(bookmarks.id, categorization.id));
+		}
+
+		console.log(`Successfully re-categorized ${categorizations.length} bookmarks`);
 	}
 
 	private async getBookmarkWithTags(
