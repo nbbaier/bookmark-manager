@@ -24,7 +24,7 @@ const categorizationSchema = z.object({
 
 /**
  * Maximum number of concurrent categorizations to process at once.
- * 
+ *
  * This constant replaces the previous magic number "3" to make the batch size
  * configurable and more maintainable. The value controls how many bookmarks
  * are processed in parallel during batch operations to prevent overwhelming

@@ -1,20 +1,20 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1756658522065,
-      "tag": "0000_violet_maggott",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1756663553911,
-      "tag": "0001_equal_ironclad",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1756658522065,
+			"tag": "0000_violet_maggott",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1756663553911,
+			"tag": "0001_equal_ironclad",
+			"breakpoints": true
+		}
+	]
 }

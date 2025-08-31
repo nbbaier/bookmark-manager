@@ -6,7 +6,11 @@ import type {
 	UpdateBookmarkRequest,
 } from "@/types/bookmark";
 import { FALLBACK_CATEGORY } from "./ai-prompts";
-import { categorizeBookmark, categorizeBookmarksBatch, isAIServiceConfigured } from "./ai-service";
+import {
+	categorizeBookmark,
+	categorizeBookmarksBatch,
+	isAIServiceConfigured,
+} from "./ai-service";
 import { db } from "./db";
 import { bookmarks, bookmarkTags, tags } from "./schema";
 
@@ -235,11 +239,12 @@ export class BookmarkService {
 					bookmarkMap[b.id] = {
 						id: b.id,
 						url: b.url,
-						title: b.title ?? undefined,
-						description: b.description ?? undefined,
-						category: b.category ?? undefined,
-						aiCategory: b.aiCategory ?? undefined,
-						aiConfidence: b.aiConfidence ?? undefined,
+						title: b.title ?? null,
+						description: b.description ?? null,
+						faviconUrl: b.faviconUrl ?? null,
+						notes: b.notes ?? null,
+						aiCategory: b.aiCategory ?? null,
+						aiConfidence: b.aiConfidence ?? null,
 						createdAt: b.createdAt,
 						updatedAt: b.updatedAt,
 						tags: [],
@@ -249,11 +254,15 @@ export class BookmarkService {
 					bookmarkMap[b.id].tags.push({
 						id: row.tag.id,
 						name: row.tag.name,
+						color: row.tag.color ?? null,
+						createdAt: row.tag.createdAt ?? null,
 					});
 				}
 			}
 			const results = Object.values(bookmarkMap);
-			console.log(`Batch re-categorization complete for ${results.length} bookmarks`);
+			console.log(
+				`Batch re-categorization complete for ${results.length} bookmarks`,
+			);
 			return results;
 		} catch (error) {
 			console.error("Failed to batch re-categorize bookmarks:", error);

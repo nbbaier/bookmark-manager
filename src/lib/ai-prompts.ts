@@ -45,7 +45,7 @@ export type BookmarkCategory = (typeof BOOKMARK_CATEGORIES)[number];
 /**
  * System prompt for bookmark categorization
  */
-export const CATEGORIZATION_SYSTEM_PROMPT = `You are an expert at categorizing bookmarks based on their URL, title, and description. 
+export const CATEGORIZATION_SYSTEM_PROMPT = `You are an expert at categorizing bookmarks based on their URL, title, and description.
 
 Your task is to analyze the provided bookmark information and assign it to the most appropriate category from this predefined list:
 ${BOOKMARK_CATEGORIES.join(", ")}
