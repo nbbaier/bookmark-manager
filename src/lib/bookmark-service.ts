@@ -1,4 +1,4 @@
-import { and, between, count, desc, eq, sql } from "drizzle-orm";
+import { and, between, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type {
 	BookmarkFilters,
 	BookmarkResponse,
@@ -6,7 +6,7 @@ import type {
 	UpdateBookmarkRequest,
 } from "@/types/bookmark";
 import { FALLBACK_CATEGORY } from "./ai-prompts";
-import { categorizeBookmark, isAIServiceConfigured } from "./ai-service";
+import { categorizeBookmark, categorizeBookmarksBatch, isAIServiceConfigured } from "./ai-service";
 import { db } from "./db";
 import { bookmarks, bookmarkTags, tags } from "./schema";
 
@@ -164,23 +164,70 @@ export class BookmarkService {
 			throw new Error("AI service not configured");
 		}
 
-		const results: BookmarkResponse[] = [];
-
-		for (const id of ids) {
-			try {
-				const result = await this.recategorizeBookmark(id);
-				results.push(result);
-			} catch (error) {
-				console.error(`Failed to re-categorize bookmark ${id}:`, error);
-				// Continue with other bookmarks even if one fails
-				const bookmark = await this.getBookmark(id);
-				if (bookmark) {
-					results.push(bookmark);
-				}
-			}
+		if (ids.length === 0) {
+			return [];
 		}
 
-		return results;
+		try {
+			// Fetch all bookmarks in a single query
+			const bookmarksData = await db
+				.select()
+				.from(bookmarks)
+				.where(inArray(bookmarks.id, ids));
+
+			if (bookmarksData.length === 0) {
+				throw new Error("No bookmarks found for the provided IDs");
+			}
+
+			console.log(`Re-categorizing ${bookmarksData.length} bookmarks in batch`);
+
+			// Transform to BookmarkData format for AI service
+			const bookmarkDataForAI = bookmarksData.map((bookmark) => ({
+				url: bookmark.url,
+				title: bookmark.title ?? undefined,
+				description: bookmark.description ?? undefined,
+			}));
+
+			// Use the batch categorization function from ai-service
+			const categorizations = await categorizeBookmarksBatch(bookmarkDataForAI);
+
+			// Update all bookmarks with new categorizations
+			for (let i = 0; i < bookmarksData.length; i++) {
+				const bookmark = bookmarksData[i];
+				const categorization = categorizations[i];
+
+				if (categorization) {
+					// Convert confidence from float (0.0-1.0) to integer (0-100) for SQLite
+					const confidenceInt = Math.round(categorization.confidence * 100);
+
+					await db
+						.update(bookmarks)
+						.set({
+							aiCategory: categorization.category,
+							aiConfidence: confidenceInt,
+							updatedAt: new Date().toISOString(),
+						})
+						.where(eq(bookmarks.id, bookmark.id));
+
+					console.log(
+						`Updated bookmark ${bookmark.id}: ${categorization.category} (confidence: ${confidenceInt}%)`,
+					);
+				}
+			}
+
+			// Return all updated bookmarks with tags
+			const results = await Promise.all(
+				bookmarksData.map((bookmark) => this.getBookmarkWithTags(bookmark.id)),
+			);
+
+			console.log(`Batch re-categorization complete for ${results.length} bookmarks`);
+			return results;
+		} catch (error) {
+			console.error("Failed to batch re-categorize bookmarks:", error);
+			throw new Error(
+				`Batch re-categorization failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		}
 	}
 
 	async listBookmarks(filters: BookmarkFilters): Promise<{

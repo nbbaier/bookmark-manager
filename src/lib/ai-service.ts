@@ -31,6 +31,11 @@ const RATE_LIMIT = {
 };
 
 /**
+ * Batch processing configuration
+ */
+const MAX_CONCURRENT_CATEGORIZATIONS = 3;
+
+/**
  * Simple in-memory cache for AI responses
  */
 interface CacheEntry {
@@ -210,7 +215,7 @@ export async function categorizeBookmarksBatch(
 	const results: CategorizationResult[] = [];
 
 	// Process in small batches to avoid overwhelming the API
-	const batchSize = 3;
+	const batchSize = MAX_CONCURRENT_CATEGORIZATIONS;
 
 	for (let i = 0; i < bookmarks.length; i += batchSize) {
 		const batch = bookmarks.slice(i, i + batchSize);
