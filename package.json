@@ -13,7 +13,8 @@
 		"db:studio": "drizzle-kit studio",
 		"db:setup": "npm run db:generate && npm run db:push",
 		"seed": "tsx scripts/seed.ts",
-		"test-db": "tsx scripts/test-db.ts"
+		"test-db": "tsx scripts/test-db.ts",
+		"test-ai": "tsx scripts/test-ai-service.ts"
 	},
 	"dependencies": {
 		"@ai-sdk/openai": "^2.0.23",
