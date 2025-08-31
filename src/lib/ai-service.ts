@@ -40,8 +40,6 @@ const RATE_LIMIT = {
 	requestTimestamps: [] as number[],
 };
 
-
-
 /**
  * Simple in-memory cache for AI responses
  */
