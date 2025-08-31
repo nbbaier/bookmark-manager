@@ -1,36 +1,138 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bookmark Organizer
+
+AI-powered personal bookmark organization system built with Next.js, TypeScript, and Turso Cloud.
+
+## Features
+
+-  🚀 **Quick Import** - Bulk import from browser bookmark exports
+-  🤖 **AI Categorization** - Automatic bookmark organization using AI
+-  🔍 **Smart Search** - Full-text and semantic search capabilities
+-  🏷️ **Tag Management** - Flexible tagging system for organization
+-  📱 **Responsive Design** - Works on desktop and mobile devices
+-  🔄 **Offline Support** - View bookmarks even when offline
+
+## Tech Stack
+
+-  **Frontend**: Next.js 14+ with TypeScript and React
+-  **Database**: Turso Cloud (SQLite) with FTS5 full-text search
+-  **AI Integration**: Vercel AI SDK for automatic categorization
+-  **Styling**: Tailwind CSS for responsive design
+-  **Hosting**: Vercel platform
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+-  Node.js 18+
+-  npm or yarn
+-  Turso Cloud account (for production database)
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone <repository-url>
+cd bookmark-manager
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up environment variables:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Edit `.env.local` with your configuration:
+
+```env
+# Turso Database Configuration
+TURSO_DATABASE_URL=your_turso_database_url_here
+TURSO_AUTH_TOKEN=your_turso_auth_token_here
+
+# Next.js Configuration
+NEXT_PUBLIC_APP_NAME=Bookmark Organizer
+```
+
+4. Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Database Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a Turso Cloud account at [turso.tech](https://turso.tech)
+2. Create a new database for your bookmarks
+3. Get your database URL and auth token
+4. Update your `.env.local` file with the credentials
 
-## Learn More
+### Health Check
 
-To learn more about Next.js, take a look at the following resources:
+Test your setup by visiting `/api/health` endpoint. You should see:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```json
+{
+   "status": "healthy",
+   "database": "connected",
+   "message": "Bookmark Organizer is running successfully"
+}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Development
 
-## Deploy on Vercel
+### Available Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+-  `npm run dev` - Start development server
+-  `npm run build` - Build for production
+-  `npm run start` - Start production server
+-  `npm run lint` - Run ESLint
+-  `npm run type-check` - Run TypeScript type checking
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   ├── dashboard/         # Dashboard page
+│   ├── import/            # Import page
+│   └── layout.tsx         # Root layout
+├── components/             # React components
+├── lib/                   # Utility libraries
+│   └── db.ts             # Database connection
+├── hooks/                 # Custom React hooks
+└── types/                 # TypeScript type definitions
+```
+
+## API Endpoints
+
+-  `GET /api/health` - Health check endpoint
+-  `GET /api/webhook/save-bookmark` - Save bookmark via webhook
+-  `GET /api/bookmarks` - List bookmarks with pagination
+-  `POST /api/bookmarks` - Create new bookmark
+-  `PUT /api/bookmarks/[id]` - Update bookmark
+-  `DELETE /api/bookmarks/[id]` - Delete bookmark
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Support
+
+For support and questions, please open an issue on GitHub.
